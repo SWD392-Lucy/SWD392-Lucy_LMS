@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lucy-content-postgres
+    environment:
+      POSTGRES_DB: lucy_content
+      POSTGRES_USER: lucy
+      POSTGRES_PASSWORD: lucy
+    ports:
+      - "5432:5432"
+    volumes:
+      - lucy-content-postgres:/var/lib/postgresql/data
+
+volumes:
+  lucy-content-postgres:

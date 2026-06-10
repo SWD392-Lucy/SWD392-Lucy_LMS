@@ -1,0 +1,34 @@
+server:
+  port: 8080
+
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  application:
+    name: lucy-content-lms
+  datasource:
+    url: ${LUCY_DB_URL}
+    driver-class-name: org.postgresql.Driver
+    username: ${LUCY_DB_USERNAME}
+    password: ${LUCY_DB_PASSWORD}
+  servlet:
+    multipart:
+      max-file-size: ${LUCY_MAX_FILE_SIZE:25MB}
+      max-request-size: ${LUCY_MAX_REQUEST_SIZE:100MB}
+  jpa:
+    hibernate:
+      ddl-auto: ${LUCY_JPA_DDL_AUTO:update}
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    root: INFO
+    org.hibernate.SQL: WARN
