@@ -4,4 +4,3 @@ data/
 .vscode/
 *.iml
 .env
-docker-compose.yml
