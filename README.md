@@ -2,6 +2,13 @@
 
 Java Spring service for week 1-2 of LUCY: accept uploaded Word curriculum files, digitize their lesson levels into PostgreSQL, and expose level-based LMS APIs.
 
+Authentication/authorization:
+
+- The service self-verifies LUCY access tokens with the same HS256 shared secret used by Identity/Gateway/Realtime.
+- `POST /api/imports/docx` requires role `Pro` or `Super`.
+- Read-only curriculum endpoints remain public for the current frontend flow.
+- `X-User-*` headers from the Gateway are not trusted as an authorization source; JWT claims are the source of truth.
+
 ## Architecture
 
 The codebase is organized by the `curriculum` business module:
@@ -64,6 +71,9 @@ Environment variables:
 - `LUCY_DB_URL` defaults to `jdbc:postgresql://localhost:5432/lucy_content`
 - `LUCY_DB_USERNAME` defaults to `lucy`
 - `LUCY_DB_PASSWORD` defaults to `lucy`
+- `LUCY_JWT_ISSUER` defaults to `lucy.identity`
+- `LUCY_JWT_AUDIENCE` defaults to `lucy.clients`
+- `LUCY_JWT_SIGNING_KEY` must match Identity/Gateway/Realtime
 - `LUCY_JPA_DDL_AUTO` defaults to `update`
 - `LUCY_MAX_FILE_SIZE` defaults to `25MB`
 - `LUCY_MAX_REQUEST_SIZE` defaults to `100MB`

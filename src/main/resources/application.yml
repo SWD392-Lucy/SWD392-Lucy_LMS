@@ -32,3 +32,10 @@ logging:
   level:
     root: INFO
     org.hibernate.SQL: WARN
+
+lucy:
+  security:
+    jwt:
+      issuer: ${LUCY_JWT_ISSUER:lucy.identity}
+      audience: ${LUCY_JWT_AUDIENCE:lucy.clients}
+      signing-key: ${LUCY_JWT_SIGNING_KEY:}
