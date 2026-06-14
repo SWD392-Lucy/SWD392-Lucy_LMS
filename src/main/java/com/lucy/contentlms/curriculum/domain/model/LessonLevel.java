@@ -112,4 +112,29 @@ public class LessonLevel {
         blocks.add(block);
         block.setLessonLevel(this);
     }
+
+    public void update(
+            int levelNumber,
+            String title,
+            Language language,
+            Stage stage,
+            String courseCode,
+            int durationMinutes,
+            SourceDocument sourceDocument
+    ) {
+        this.levelNumber = levelNumber;
+        this.title = title;
+        this.language = language;
+        this.stage = stage;
+        this.courseCode = courseCode;
+        this.durationMinutes = durationMinutes;
+        this.sourceDocument = sourceDocument;
+    }
+
+    public void replaceBlocks(List<LessonBlock> nextBlocks) {
+        blocks.clear();
+        for (LessonBlock block : nextBlocks) {
+            addBlock(block);
+        }
+    }
 }

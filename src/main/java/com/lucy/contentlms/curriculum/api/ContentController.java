@@ -1,20 +1,26 @@
 package com.lucy.contentlms.curriculum.api;
 
 import com.lucy.contentlms.curriculum.application.ContentImportService;
+import com.lucy.contentlms.curriculum.application.CurriculumCommandService;
 import com.lucy.contentlms.curriculum.application.CurriculumQueryService;
 import com.lucy.contentlms.curriculum.application.dto.ImportSummaryResponse;
 import com.lucy.contentlms.curriculum.application.dto.LessonLevelDetailResponse;
 import com.lucy.contentlms.curriculum.application.dto.LessonLevelSummaryResponse;
 import com.lucy.contentlms.curriculum.application.dto.SourceDocumentResponse;
+import com.lucy.contentlms.curriculum.application.dto.UpsertLessonLevelRequest;
 import com.lucy.contentlms.curriculum.domain.model.Language;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -32,13 +38,16 @@ public class ContentController {
 
     private final CurriculumQueryService curriculumQueryService;
     private final ContentImportService contentImportService;
+    private final CurriculumCommandService curriculumCommandService;
 
     public ContentController(
             CurriculumQueryService curriculumQueryService,
-            ContentImportService contentImportService
+            ContentImportService contentImportService,
+            CurriculumCommandService curriculumCommandService
     ) {
         this.curriculumQueryService = curriculumQueryService;
         this.contentImportService = contentImportService;
+        this.curriculumCommandService = curriculumCommandService;
     }
 
     @GetMapping("/health")
@@ -84,5 +93,24 @@ public class ContentController {
     @PostMapping(value = "/imports/docx", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ImportSummaryResponse importDocx(@RequestPart("files") List<MultipartFile> files) {
         return contentImportService.importUploadedDocuments(files);
+    }
+
+    @PostMapping("/levels")
+    public ResponseEntity<LessonLevelDetailResponse> createLevel(@Valid @org.springframework.web.bind.annotation.RequestBody UpsertLessonLevelRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(curriculumCommandService.createLevel(request));
+    }
+
+    @PutMapping("/levels/{id}")
+    public LessonLevelDetailResponse updateLevel(
+            @PathVariable Long id,
+            @Valid @org.springframework.web.bind.annotation.RequestBody UpsertLessonLevelRequest request
+    ) {
+        return curriculumCommandService.updateLevel(id, request);
+    }
+
+    @DeleteMapping("/levels/{id}")
+    public ResponseEntity<Void> deleteLevel(@PathVariable Long id) {
+        curriculumCommandService.deleteLevel(id);
+        return ResponseEntity.noContent().build();
     }
 }

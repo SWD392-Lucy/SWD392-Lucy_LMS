@@ -3,6 +3,7 @@ package com.lucy.contentlms.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lucy.contentlms.curriculum.api.ContentController;
 import com.lucy.contentlms.curriculum.application.ContentImportService;
+import com.lucy.contentlms.curriculum.application.CurriculumCommandService;
 import com.lucy.contentlms.curriculum.application.CurriculumQueryService;
 import com.lucy.contentlms.curriculum.application.dto.ImportSummaryResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,6 +30,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -51,6 +53,9 @@ class SecurityConfigTest {
 
     @MockBean
     private ContentImportService contentImportService;
+
+    @MockBean
+    private CurriculumCommandService curriculumCommandService;
 
     @BeforeEach
     void setUp() {
@@ -99,6 +104,26 @@ class SecurityConfigTest {
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.importedDocuments").value(1));
+    }
+
+    @Test
+    void contentWriteRejectsRoleWithoutMentorAccess() throws Exception {
+        mockMvc.perform(post("/api/levels")
+                        .contentType("application/json")
+                        .content("{}")
+                        .header("Authorization", "Bearer " + token("Lucy", Instant.now().plusSeconds(900)))
+                        .with(csrf()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void contentWriteAllowsProRole() throws Exception {
+        mockMvc.perform(post("/api/levels")
+                        .contentType("application/json")
+                        .content("{}")
+                        .header("Authorization", "Bearer " + token("Pro", Instant.now().plusSeconds(900)))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
     }
 
     private MockMultipartFile docxFile() {

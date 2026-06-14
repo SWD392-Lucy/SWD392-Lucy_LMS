@@ -68,7 +68,7 @@ Default local database settings match `docker-compose.yml`:
 
 Environment variables:
 
-- `LUCY_DB_URL` defaults to `jdbc:postgresql://localhost:5432/lucy_content`
+- `LUCY_DB_URL` defaults to `jdbc:postgresql://localhost:5432/lucy_lms`
 - `LUCY_DB_USERNAME` defaults to `lucy`
 - `LUCY_DB_PASSWORD` defaults to `lucy`
 - `LUCY_JWT_ISSUER` defaults to `lucy.identity`

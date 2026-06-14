@@ -35,7 +35,12 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/health", "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/imports/docx").hasAnyRole("Pro", "Super")
+                        .requestMatchers(HttpMethod.GET, "/api/materials/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/rooms/*/pinned-materials/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/**").hasAnyRole("Pro", "Super")
+                        .requestMatchers(HttpMethod.PUT, "/api/**").hasAnyRole("Pro", "Super")
+                        .requestMatchers(HttpMethod.PATCH, "/api/**").hasAnyRole("Pro", "Super")
+                        .requestMatchers(HttpMethod.DELETE, "/api/**").hasAnyRole("Pro", "Super")
                         .requestMatchers(HttpMethod.GET, "/api/**").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)))
