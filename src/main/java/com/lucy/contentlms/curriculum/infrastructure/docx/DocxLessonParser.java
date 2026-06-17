@@ -24,9 +24,9 @@ import java.util.zip.ZipInputStream;
 @Component
 public class DocxLessonParser {
 
-    private static final Pattern CHINESE_LEVEL = Pattern.compile("^(\\d{1,3})[.\\uFF0E]\\s*(.+)$");
-    private static final Pattern ENGLISH_LEVEL = Pattern.compile("(?i).*\\bLEVEL\\s+(\\d{1,3})\\s*[-\\u2013\\u2014]\\s*(?!\\d)(.+)$");
-    private static final Pattern JAPANESE_LEVEL = Pattern.compile(".*\\u30EC\\u30D9\\u30EB\\s*(\\d{1,3})\\s*[-\\u2013\\u2014]\\s*(?!\\d)(.+)$");
+    private static final Pattern CHINESE_LEVEL = Pattern.compile("^(\\d{1,3})(?:\\s*[-\\u2013\\u2014]\\s*(\\d{1,3}))?[.\\uFF0E\\uFF1A:]\\s*(.+)$");
+    private static final Pattern ENGLISH_LEVEL = Pattern.compile("(?i).*\\bLEVEL\\s+(\\d{1,3})(?:\\s*[-\\u2013\\u2014]\\s*(\\d{1,3}))?\\s*[-\\u2013\\u2014:\\uFF1A]\\s*(?!\\d)(.+)$");
+    private static final Pattern JAPANESE_LEVEL = Pattern.compile(".*\\u30EC\\u30D9\\u30EB\\s*(\\d{1,3})(?:\\s*[-\\u2013\\u2014]\\s*(\\d{1,3}))?\\s*[-\\u2013\\u2014:\\uFF1A]\\s*(?!\\d)(.+)$");
 
     public ParsedDocument parse(Path docxPath) {
         String fileName = docxPath.getFileName().toString();
@@ -48,22 +48,64 @@ public class DocxLessonParser {
 
         List<ParsedLevel> levels = new ArrayList<>();
         LevelDraft current = null;
+        Heading currentRange = null;
+        int nextLevelNumberInRange = -1;
+
         for (String paragraph : paragraphs) {
             Heading heading = parseHeading(language, paragraph);
             if (heading != null) {
                 if (current != null) {
                     levels.add(current.toParsedLevel());
+                    current = null;
                 }
-                current = new LevelDraft(
-                        heading.levelNumber(),
-                        heading.title(),
-                        language,
-                        inferStage(heading.levelNumber()),
-                        courseCode,
-                        inferDurationMinutes(heading.levelNumber())
-                );
-            } else if (current != null) {
-                current.blocks().add(paragraph);
+                if (heading.endLevelNumber() != null) {
+                    currentRange = heading;
+                    nextLevelNumberInRange = heading.levelNumber();
+                } else {
+                    currentRange = null;
+                    current = new LevelDraft(
+                            heading.levelNumber(),
+                            heading.title(),
+                            language,
+                            inferStage(heading.levelNumber()),
+                            courseCode,
+                            inferDurationMinutes(heading.levelNumber())
+                    );
+                }
+            } else {
+                List<String> extractedTitles = new ArrayList<>();
+                if (language == Language.ENGLISH) {
+                    for (String line : paragraph.split("\\r?\\n")) {
+                        String subLevelTitle = extractSubLevelTitle(language, line.trim());
+                        if (subLevelTitle != null && !subLevelTitle.isBlank()) {
+                            extractedTitles.add(subLevelTitle);
+                        }
+                    }
+                } else {
+                    String subLevelTitle = extractSubLevelTitle(language, paragraph);
+                    if (subLevelTitle != null && !subLevelTitle.isBlank()) {
+                        extractedTitles.add(subLevelTitle);
+                    }
+                }
+
+                if (currentRange != null) {
+                    for (String title : extractedTitles) {
+                        if (nextLevelNumberInRange <= currentRange.endLevelNumber()) {
+                            LevelDraft rangeLevel = new LevelDraft(
+                                    nextLevelNumberInRange,
+                                    title,
+                                    language,
+                                    inferStage(nextLevelNumberInRange),
+                                    courseCode,
+                                    inferDurationMinutes(nextLevelNumberInRange)
+                            );
+                            levels.add(rangeLevel.toParsedLevel());
+                            nextLevelNumberInRange++;
+                        }
+                    }
+                } else if (current != null) {
+                    current.blocks().addAll(extractedTitles);
+                }
             }
         }
         if (current != null) {
@@ -98,11 +140,63 @@ public class DocxLessonParser {
             return null;
         }
         int levelNumber = Integer.parseInt(matcher.group(1));
+        Integer endLevelNumber = null;
+        if (matcher.group(2) != null) {
+            endLevelNumber = Integer.parseInt(matcher.group(2));
+        }
         if (levelNumber < 1 || levelNumber > 100) {
             return null;
         }
-        String title = cleanTitle(matcher.group(2));
-        return new Heading(levelNumber, title);
+        String title = cleanTitle(matcher.group(3));
+        return new Heading(levelNumber, endLevelNumber, title);
+    }
+
+    private String extractSubLevelTitle(Language language, String paragraph) {
+        if (language == Language.ENGLISH) {
+            Matcher matcher = Pattern.compile("(?i)^(?:Sub-level\\s*\\d+\\s*[:\\-]\\s*|\\d+[\\.\\:]\\s+)(.+)").matcher(paragraph);
+            if (matcher.matches()) {
+                return matcher.group(1).trim();
+            }
+        } else {
+            Matcher matcher = Pattern.compile("(?i)^(?:Q\\d+\\s*[:\\-\\uFF1A]\\s*|\\d+[\\.\\:\\uFF1A]\\s+)(.+)").matcher(paragraph);
+            if (matcher.matches()) {
+                String title = matcher.group(1).trim();
+                // If it contains newline or 👉, take only the first part
+                if (title.contains("\n")) {
+                    title = title.substring(0, title.indexOf("\n")).trim();
+                }
+                if (title.contains("👉")) {
+                    title = title.substring(0, title.indexOf("👉")).trim();
+                }
+                return title;
+            } else if (language == Language.CHINESE) {
+                if (paragraph.contains("👉")) {
+                    String title = paragraph;
+                    if (title.contains("\n")) {
+                        title = title.substring(0, title.indexOf("\n")).trim();
+                    } else {
+                        title = title.substring(0, title.indexOf("👉")).trim();
+                    }
+                    title = title.replaceFirst("^\\d+[\\.\\:\\uFF1A]\\s*", "");
+                    return title;
+                }
+                
+                // Fallback for Q+A in separate paragraphs: if it is a Chinese question
+                if ((paragraph.endsWith("？") || paragraph.endsWith("?")) && paragraph.matches(".*[\\u4e00-\\u9fa5].*") && paragraph.length() <= 50) {
+                    return paragraph.replaceFirst("^\\d+[\\.\\:\\uFF1A]\\s*", "").trim();
+                }
+            } else if (language == Language.JAPANESE) {
+                // For Japanese, take the first line if it's short
+                String firstLine = paragraph;
+                if (firstLine.contains("\n")) {
+                    firstLine = firstLine.substring(0, firstLine.indexOf("\n")).trim();
+                }
+                if (firstLine.length() > 0 && firstLine.length() <= 40 && !firstLine.contains("👉") && firstLine.matches(".*[\\p{L}\\p{N}].*")) {
+                    return firstLine.replaceFirst("^\\s*[-•]\\s*", "").trim();
+                }
+            }
+        }
+        return null;
     }
 
     private String cleanTitle(String rawTitle) {
@@ -202,7 +296,7 @@ public class DocxLessonParser {
         return levelNumber >= 61 ? 120 : 60;
     }
 
-    private record Heading(int levelNumber, String title) {
+    private record Heading(int levelNumber, Integer endLevelNumber, String title) {
     }
 
     private record LevelDraft(
